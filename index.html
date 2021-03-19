@@ -1,0 +1,192 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+
+  <link href='https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.css' rel='stylesheet' />
+  <script src='https://api.mapbox.com/mapbox-gl-js/v2.1.1/mapbox-gl.js'></script>
+  <script src='https://api.mapbox.com/mapbox.js/plugins/turf/v3.0.11/turf.min.js'></script>
+
+  <!--Bootstrap-->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+
+  <!--CSS sheet-->
+  <link rel="stylesheet" href="styles.css">
+
+  <title>ENGO 551 Project 4</title>
+
+</head>
+
+<body>
+
+  <!--navigation bar-->
+  <nav class="navbar navbar-expand-lg navbar-light bg-secondary">
+    <a class="navbar-brand" href="index.html">
+      <img src="calgarylogo2.jpg" width="100" alt="">
+      Nearest Hospital/Clinic from a School in Calgary: Please see description below
+    </a>
+  </nav>
+
+  <!--table and information on the left side of the website-->
+  <div class="row">
+    <div class="col-md-3">
+      <br/>
+      <h3>Nearest Hospital/Clinic from School Visualized</h3>
+      <p>Click on a school to see where the nearest hospital is</p>
+      <P>Upon clicking a school, the nearest hospital will be highlighted blue</P>
+      <p><b>Legends:</b></p>
+
+      <table class="table">
+        <tr>
+          <th>Description</th>
+          <th>Marker</th>
+        </tr>
+
+        <tr>
+          <td>School</td>
+          <td><img src="school.jpg"></div></td>
+        </tr>
+
+        <tr>
+          <td>Hospital</td>
+          <td><img src="hospital.jpg"></div></td>
+        </tr>
+
+      </table>
+
+
+      <br/>
+    </div>
+
+    <div class="col-md-9">
+      <div id="map"></div>
+    </div>
+
+  </div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2hyaXNrY2NobyIsImEiOiJja200ZGE3YzEwM2hhMm9wbThweHVpbmdnIn0.WK32LPKYrtmevgs6emkIrQ';
+var map = new mapboxgl.Map({
+container: 'map',
+style: 'mapbox://styles/mapbox/light-v10',
+center: [-114.0719,51.0447],
+zoom: 12
+});
+
+var link1 = 'https://data.calgary.ca/resource/x34e-bcjz.geojson?$where=type=\'Hospital\' OR type=\'PHS Clinic\'';
+var link2 = 'https://data.calgary.ca/resource/fd9t-tdn2.geojson';
+
+
+// Get school and clinic data from Open Calgary
+Promise.all([
+  fetch(link1),
+  fetch(link2)
+]).then(function (responses) {
+  // Get a JSON object from each of the responses
+  return Promise.all(responses.map(function (response) {
+    return response.json();
+  }));
+}).then(function (map_data) {
+  // Log the data to the console
+  console.log(map_data);
+
+  // Add clinics and schools layers to map
+  map.on('load', function() {
+    map.addLayer({
+      id: 'hospitals',
+      type: 'symbol',
+      source: {
+        type: 'geojson',
+        data: map_data[0]
+      },
+      layout: {
+        'icon-image': 'hospital-15',
+        'icon-allow-overlap': true
+      },
+      paint: { }
+    });
+    map.addLayer({
+      id: 'schools',
+      type: 'symbol',
+      source: {
+        type: 'geojson',
+        data: map_data[1]
+      },
+      layout: {
+        'icon-image': 'school-15'
+      },
+      paint: { }
+    });
+  });
+
+  // Add popups
+  var popup = new mapboxgl.Popup();
+
+  map.on('mousemove', function(e) {
+    var features = map.queryRenderedFeatures(e.point, { layers: ['schools', 'hospitals'] });
+
+    if (!features.length) {
+      popup.remove();
+      return;
+    }
+    var feature = features[0];
+
+    popup.setLngLat(feature.geometry.coordinates)
+      .setHTML(feature.properties.name)
+      .addTo(map);
+
+    map.getCanvas().style.cursor = features.length ? 'pointer' : '';
+  });
+
+  // Create source for nearest hospital
+  map.addSource('nearest-hospital', {
+    type: 'geojson',
+    data: {
+      type: 'FeatureCollection',
+      features: [
+      ]
+    }
+  });
+
+  map.on('click', function(e) {
+    // Return any features from the 'school' layer whenever the map is clicked
+    var schoolFeatures = map.queryRenderedFeatures(e.point, { layers: ['schools'] });
+    if (!schoolFeatures.length) {
+      return;
+    }
+    var schoolFeature = schoolFeatures[0];
+
+    // Using Turf, find the nearest hospital to school clicked
+    var nearestHospital = turf.nearest(schoolFeature, map_data[0]);
+
+    // If a nearest library is found
+    if (nearestHospital !== null) {
+      // Update the 'nearest-school' data source to include
+      // the nearest library
+      map.getSource('nearest-hospital').setData({
+        type: 'FeatureCollection',
+        features: [
+          nearestHospital
+        ]
+      });
+      // Create a new circle layer from the 'nearest-hospital' data source
+      map.addLayer({
+        id: 'nearest-hospital',
+        type: 'circle',
+        source: 'nearest-hospital',
+        paint: {
+          'circle-radius': 12,
+          'circle-color': '#486DE0'
+        }
+      }, 'hospitals');
+    }
+  });
+
+
+});
+
+</script>
+
+</body>
+</html>
