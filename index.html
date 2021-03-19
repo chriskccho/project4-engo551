@@ -83,15 +83,12 @@ Promise.all([
   fetch(link1),
   fetch(link2)
 ]).then(function (responses) {
-  // Get a JSON object from each of the responses
   return Promise.all(responses.map(function (response) {
     return response.json();
   }));
 }).then(function (map_data) {
-  // Log the data to the console
   console.log(map_data);
 
-  // Add clinics and schools layers to map
   map.on('load', function() {
     map.addLayer({
       id: 'hospitals',
@@ -120,7 +117,6 @@ Promise.all([
     });
   });
 
-  // Add popups
   var popup = new mapboxgl.Popup();
 
   map.on('mousemove', function(e) {
